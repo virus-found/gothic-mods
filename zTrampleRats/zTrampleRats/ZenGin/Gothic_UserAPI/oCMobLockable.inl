@@ -1,0 +1,6 @@
+// Supported with union (c) 2020 Union team
+
+// User API for oCMobLockable
+// Add your methods here
+
+int __thiscall PickLock_Union( oCNpc*, char );
