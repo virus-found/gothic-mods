@@ -1,0 +1,16 @@
+#engine [G1, G1A, G2, G2A]
+	#patch [zNoUnderwaterEffects]
+		// Disable camera underwater color blend and sound muffling
+		INT func_zCAICamera_CheckUnderWaterFX = ZenDef(0x004B4240, 0x004C3060, 0x004BACF0, 0x004BD2E0)
+		INT func_zCSkyControler_Outdoor_SetUnderwaterFX = ZenDef(0x005B8880, 0x005CE720, 0x005D7BD0, 0x005DFFE0)
+
+		#assembler [func_zCAICamera_CheckUnderWaterFX]
+			xor eax, eax
+			ret
+		#/assembler
+
+		#assembler [func_zCSkyControler_Outdoor_SetUnderwaterFX]
+			ret 4
+		#/assembler
+	#/patch
+#/engine
