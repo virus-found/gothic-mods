@@ -1,0 +1,26 @@
+# Build outputs and intermediate files
+out/
+build/
+CMakeFiles/
+CMakeCache.txt
+*.obj
+*.o
+*.exp
+*.lib
+*.ninja
+*.ninja_log
+*.ninja_deps
+
+# OS & Editor files
+.DS_Store
+Thumbs.db
+*~
+*.swp
+*.bak
+*.tmp
+*.log
+
+# Local user configs and uploader overrides
+update_all_mods.sh
+*.local.sh
+*.env
