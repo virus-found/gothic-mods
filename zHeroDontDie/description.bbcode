@@ -1,8 +1,24 @@
 Hero doesn't die. Converts fatal damage into unconsciousness without death, allowing ironman gameplay.
 
-Edit the zHeroDontDie.d to make changes:
-// Configurable Hero Invincibility Grace Period (in seconds after standing up from unconsciousness):
+[b]Features:[/b]
+- Instant damage interception at 1 HP, preventing game over.
+- 2-second ground knockdown followed by seamless recovery animation.
+- Configurable post-knockdown invincibility grace period (default: 20 seconds).
+- Full protection against scripted instant-death triggers and max HP reduction traps.
+- Clean facial expressions and neutral face state restoration.
+
+[b]Configuration:[/b]
+Edit [b]zHeroDontDie.d[/b] to customize timers:
+[code]
+// Configurable Hero Invincibility Grace Period (in seconds after standing up):
 const int z_HeroCooldownSeconds = 20;
+
+// Configurable Hero Knockdown Duration on ground (in seconds, Hero only):
+const int z_HeroDownDurationSeconds = 2;
+[/code]
+
+[b]Notes & Known Minor Nuance:[/b]
+When knocked down by beasts/monsters using natural weapons (teeth/claws), peaceful item/chest crosshair focus temporarily stays in combat stance. Simply cycle your weapon once (press [b]1[/b] to draw and [b]1[/b] to sheathe) to return to peacetime interaction focus.
 
 [h2]Non-Steam Download & Source Code[/h2]
 [url=https://github.com/virus-found/gothic-mods]GitHub: virus-found/gothic-mods[/url]
