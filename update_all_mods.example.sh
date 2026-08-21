@@ -111,9 +111,15 @@ ask_and_run "Update: zNoUnderwaterEffects (3786949195)" \
     --tags="Addon,Union,Patch,Gameplay,Archolos" \
     --changenote="Maintenance update"
 
-# -------------------------------------------------------------
-# 2. Publish New Mods (Template)
-# -------------------------------------------------------------
+ask_and_run "Update: zPrintScreenDuration (3787732835)" \
+    update --game=g2 --mod=3787732835 \
+    --title="zPrintScreenDuration" \
+    --description="$(cat "${SCRIPT_DIR}/zPrintScreenDuration/description.bbcode")" \
+    --tags="Addon,Union,Patch,Gameplay,Archolos" \
+    --content="${WINE_REPO_ROOT}\zPrintScreenDuration\Content" \
+    --preview="${WINE_REPO_ROOT}\zPrintScreenDuration\preview.png" \
+    --changenote="Initial release"
+
 #ask_and_run "Publish: MyNewMod" \
 #    publish --game=g2 --title="MyNewMod" \
 #    --description="$(cat "${SCRIPT_DIR}/MyNewMod/description.bbcode")" \
