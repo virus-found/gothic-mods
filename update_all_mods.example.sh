@@ -2,7 +2,7 @@
 set -euo pipefail
 
 # -------------------------------------------------------------
-# Configuration (Overridden by environment or update_all_mods.sh)
+# Configuration (overridden by environment or update_all_mods.sh)
 # -------------------------------------------------------------
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 WINE_REPO_ROOT="Z:${SCRIPT_DIR//\//\\}"
@@ -49,7 +49,7 @@ echo "=== Gothic Steam Workshop Uploader ==="
 echo "Confirm (y), skip (N/Enter), or quit (q) for each mod."
 
 # -------------------------------------------------------------
-# 1. Update Existing Published Mods
+# Publish mods
 # -------------------------------------------------------------
 ask_and_run "Update: zSprint (3770177726)" \
     update --game=g2 --mod=3770177726 \
@@ -68,7 +68,8 @@ ask_and_run "Update: zHeroDontDie (3770285059)" \
     update --game=g2 --mod=3770285059 \
     --content="${WINE_REPO_ROOT}\zHeroDontDie\Content" \
     --description="$(cat "${SCRIPT_DIR}/zHeroDontDie/description.bbcode")" \
-    --changenote="Fixed ovens, chests, and interactive objects becoming non-interactable after main hero knock out"
+    --tags="Addon,Union,Patch,Gameplay,Archolos" \
+    --changenote="Update to 20s recovery and immortality handling"
 
 ask_and_run "Update: zTrampleRats (3773551430)" \
     update --game=g2 --mod=3773551430 \
