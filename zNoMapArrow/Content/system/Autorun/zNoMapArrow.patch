@@ -1,0 +1,14 @@
+#engine [G1, G1A, G2, G2A]
+	#patch [zNoMapArrow]
+		// engine specific
+		INT func_oCViewDocumentMap_UpdatePosition = ZenDef(0x00726030, 0x00763590, 0x00772780, 0x0068D7B0)
+		INT text_oCViewDocumentMap_SetPage_InsertArrow = ZenDef(0x00725F7A, 0x007634CA, 0x00772587, 0x0068D5B7)
+		// end of engine specific
+
+		// return immediately from UpdatePosition to skip position math
+		HEX @$func_oCViewDocumentMap_UpdatePosition = 'c3'
+
+		// nop out the call inserting ViewArrow child into ViewPageMap
+		HEX @$text_oCViewDocumentMap_SetPage_InsertArrow = '90 90 90 90 90'
+	#/patch
+#/engine
