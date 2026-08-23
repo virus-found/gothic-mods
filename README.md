@@ -16,6 +16,9 @@ Collection of lightweight quality-of-life plugins, standalone Daedalus scripts, 
 | **[zMinDamage](zMinDamage/)** | `.d` Script | Adjusts the guaranteed minimum combat damage threshold from 5 to 1 across all entities. |
 | **[zPlunderInState](zPlunderInState/)** | `.patch` Patch | Prevents looting NPCs while they are in active combat/dialogue states before properly entering death/unconsciousness (with community fix for static world corpses). |
 | **[zNoUnderwaterEffects](zNoUnderwaterEffects/)** | `.patch` Patch | Removes underwater camera color distortion and audio muffling for clear underwater visibility. |
+| **[zPrintScreenDuration](zPrintScreenDuration/)** | `.d` Script | Extends on-screen message notification duration to a configurable 10 seconds. |
+| **[zNoMapArrow](zNoMapArrow/)** | `.patch` / `.d` | Disables player position arrow and cursor on all in-game maps for authentic navigation. |
+| **[zCompass](zCompass/)** | `.d` Script | Minimalist hand-drawn HUD compass styled after the authentic map legend. |
 
 ---
 

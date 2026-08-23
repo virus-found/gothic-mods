@@ -121,12 +121,19 @@ ask_and_run "Update: zPrintScreenDuration (3787732835)" \
     --preview="${WINE_REPO_ROOT}\zPrintScreenDuration\preview.png" \
     --changenote="Initial release"
 
-#ask_and_run "Publish: MyNewMod" \
-#    publish --game=g2 --title="MyNewMod" \
-#    --description="$(cat "${SCRIPT_DIR}/MyNewMod/description.bbcode")" \
-#    --tags="Addon,Union,Plugin,Gameplay,Archolos" \
-#    --content="${WINE_REPO_ROOT}\MyNewMod\Content" \
-#    --preview="${WINE_REPO_ROOT}\MyNewMod\preview.png"
+ask_and_run "Publish: zNoMapArrow" \
+    publish --game=g2 --title="zNoMapArrow" \
+    --description="$(cat "${SCRIPT_DIR}/zNoMapArrow/description.bbcode")" \
+    --tags="Addon,Union,Patch,Gameplay,Archolos" \
+    --content="${WINE_REPO_ROOT}\zNoMapArrow\Content" \
+    --preview="${WINE_REPO_ROOT}\zNoMapArrow\preview.png"
+
+ask_and_run "Publish: zCompass" \
+    publish --game=g2 --title="zCompass" \
+    --description="$(cat "${SCRIPT_DIR}/zCompass/description.bbcode")" \
+    --tags="Addon,Union,Patch,Gameplay,Archolos" \
+    --content="${WINE_REPO_ROOT}\zCompass\Content" \
+    --preview="${WINE_REPO_ROOT}\zCompass\preview.png"
 
 echo ""
 echo "Finished processing all items!"
