@@ -139,11 +139,74 @@ namespace NS { \
     zrenderer->SetAlphaBlendFunc(oldBlend); \
   } \
 \
+  static int s_legacyCleaned = 0; \
+\
+  static void CleanupLegacyLeGoSprites() { \
+    if (!parser) return; \
+    zCPar_Symbol* symSpriteCls = parser->GetSymbol("GCSPRITE@"); \
+    if (!symSpriteCls) return; \
+\
+    int idxGet = parser->GetIndex("GETPTR"); \
+    int idxDelete = parser->GetIndex("DELETE"); \
+    int idxSetVis = parser->GetIndex("SPRITE_SETVISIBLE"); \
+\
+    int knownHandles[] = { 55094, 55095 }; \
+    for (int i = 0; i < 2; ++i) { \
+      int h = knownHandles[i]; \
+      if (idxGet >= 0) { \
+        void* ptr = parser->CallFunc(idxGet, h); \
+        if (ptr) { \
+          *(int*)((char*)ptr + 16) = 1; \
+        } \
+      } \
+      if (idxSetVis >= 0) { \
+        parser->CallFunc(idxSetVis, h, 0); \
+      } \
+      if (idxDelete >= 0) { \
+        parser->CallFunc(idxDelete, h); \
+      } \
+    } \
+\
+    zCPar_Symbol* symTable = parser->GetSymbol("_PM_FOREACHTABLE"); \
+    if (symTable) { \
+      int tablePtr = 0; \
+      symTable->GetValue(tablePtr, 0); \
+      int classIndex = parser->GetIndex("GCSPRITE@"); \
+      if (tablePtr && classIndex >= 0) { \
+        zCArray<int>** pTable = (zCArray<int>**)tablePtr; \
+        zCArray<int>* spriteList = pTable[classIndex]; \
+        if (spriteList && spriteList->GetNum() > 0) { \
+          for (int i = spriteList->GetNum() - 1; i >= 0; --i) { \
+            int h = (*spriteList)[i]; \
+            if (idxGet >= 0) { \
+              void* ptr = parser->CallFunc(idxGet, h); \
+              if (ptr) { \
+                zSTRING* texName = (zSTRING*)((char*)ptr + 24); \
+                if (texName && texName->ToChar() && strstr(texName->ToChar(), "PATCH_COMPASS")) { \
+                  *(int*)((char*)ptr + 16) = 1; \
+                  if (idxSetVis >= 0) parser->CallFunc(idxSetVis, h, 0); \
+                  if (idxDelete >= 0) parser->CallFunc(idxDelete, h); \
+                } \
+              } \
+            } \
+          } \
+        } \
+      } \
+    } \
+  } \
+\
   void OnInit() { \
     if (parser) { \
       LoadCompassConfig(); \
       s_cfgLoaded = 1; \
     } \
+    s_legacyCleaned = 0; \
+    CleanupLegacyLeGoSprites(); \
+  } \
+\
+  void OnLoad() { \
+    s_legacyCleaned = 0; \
+    CleanupLegacyLeGoSprites(); \
   } \
 \
   void OnLoop() { \
@@ -155,6 +218,11 @@ namespace NS { \
     if (!ogame->GetShowPlayerStatus() || player->inventory2.IsOpen()) return; \
     if (!oCInformationManager::GetInformationManager().HasFinished()) return; \
     if (s_aivInvincible >= 0 && s_aivInvincible < MAX_AIVARS && player->aiscriptvars[s_aivInvincible] != 0) return; \
+\
+    if (!s_legacyCleaned) { \
+      CleanupLegacyLeGoSprites(); \
+      s_legacyCleaned = 1; \
+    } \
 \
     if (!s_texBack && s_texBackName[0] != '\0') { \
       zSTRING texName(s_texBackName); \
@@ -238,16 +306,34 @@ static void Game_Loop() {
     default: break;
   }
 }
+static void OnGameLoad() {
+  switch (Union.GetEngineVersion()) {
+#ifdef __G1
+    case Engine_G1:  Gothic_I_Classic::OnLoad(); break;
+#endif
+#ifdef __G1A
+    case Engine_G1A: Gothic_I_Addon::OnLoad(); break;
+#endif
+#ifdef __G2
+    case Engine_G2:  Gothic_II_Classic::OnLoad(); break;
+#endif
+#ifdef __G2A
+    case Engine_G2A: Gothic_II_Addon::OnLoad(); break;
+#endif
+    default: break;
+  }
+}
+
 static void Game_PostLoop() {}
 static void Game_MenuLoop() {}
 static void Game_SaveBegin() {}
 static void Game_SaveEnd() {}
 static void Game_LoadBegin_NewGame() {}
-static void Game_LoadEnd_NewGame() {}
+static void Game_LoadEnd_NewGame() { OnGameLoad(); }
 static void Game_LoadBegin_SaveGame() {}
-static void Game_LoadEnd_SaveGame() {}
+static void Game_LoadEnd_SaveGame() { OnGameLoad(); }
 static void Game_LoadBegin_ChangeLevel() {}
-static void Game_LoadEnd_ChangeLevel() {}
+static void Game_LoadEnd_ChangeLevel() { OnGameLoad(); }
 static void Game_LoadBegin_Trigger() {}
 static void Game_LoadEnd_Trigger() {}
 static void Game_Pause() {}
