@@ -4,18 +4,40 @@ META
     MergeMode = TRUE;
 };
 
-// Title: zHeroDontDie (100% Standalone - Depends ONLY on Union)
-// Fast 2s Hero Knockdown Recovery, 20s Standing Grace Period, Clean Facial Morph, Full Movement & Object Interactivity
+// title: zHeroDontDie (100% standalone - depends only on Union)
+// fast 2s hero knockdown recovery, 20s standing grace period, clean facial morph
 
-// Configurable Hero Invincibility Grace Period (in seconds after standing up):
 const int z_HeroCooldownSeconds = 20;
-
-// Configurable Hero Knockdown Duration on ground (in seconds, Hero only):
 const int z_HeroDownDurationSeconds = 2;
 
 var int z_hero_down;
 var int z_hero_timer;
 var int z_hero_cached_max_hp;
+
+func int _zHeroDontDie_IsMonster(var c_npc npc)
+{
+    test(GIL_SEPERATOR_HUM)
+    {
+        if (npc.guild > GIL_SEPERATOR_HUM)
+        {
+            return TRUE;
+        };
+        return FALSE;
+    };
+    if (npc.guild > 16)
+    {
+        return TRUE;
+    };
+    return FALSE;
+};
+
+func void _zHeroDontDie_ClearInvincible(var c_npc npc)
+{
+    test(AIV_INVINCIBLE)
+    {
+        npc.aivar[AIV_INVINCIBLE] = FALSE;
+    };
+};
 
 func void _zDisengageNpc(var c_npc target_npc)
 {
@@ -25,15 +47,27 @@ func void _zDisengageNpc(var c_npc target_npc)
         {
             Npc_ClearAIQueue(target_npc);
             AI_StandUp(target_npc);
-            if (target_npc.guild > GIL_SEPERATOR_HUM)
+            if (_zHeroDontDie_IsMonster(target_npc))
             {
-                target_npc.aivar[AIV_PursuitEnd] = TRUE;
-                target_npc.aivar[AIV_MM_ThreatenBeforeAttack] = 1;
-                AI_StartState(target_npc, ZS_MM_ThreatenEnemy, 1, ""); // Threaten, roar and step back
+                test(AIV_PursuitEnd)
+                {
+                    target_npc.aivar[AIV_PursuitEnd] = TRUE;
+                };
+                test(AIV_MM_ThreatenBeforeAttack)
+                {
+                    target_npc.aivar[AIV_MM_ThreatenBeforeAttack] = 1;
+                };
+                test(ZS_MM_ThreatenEnemy)
+                {
+                    AI_StartState(target_npc, ZS_MM_ThreatenEnemy, 1, "");
+                };
             }
             else
             {
-                AI_StartState(target_npc, ZS_ObservePlayer, 1, ""); // Human passive observe
+                test(ZS_ObservePlayer)
+                {
+                    AI_StartState(target_npc, ZS_ObservePlayer, 1, "");
+                };
             };
         };
     };
@@ -41,7 +75,6 @@ func void _zDisengageNpc(var c_npc target_npc)
 
 func void _zFlushNearbyHostiles(var c_npc her)
 {
-    // 1. Disengage primary combat target
     if (Npc_GetTarget(her))
     {
         var c_npc target1;
@@ -49,86 +82,101 @@ func void _zFlushNearbyHostiles(var c_npc her)
         _zDisengageNpc(target1);
     };
 
-    // 2. Disengage secondary combat target
-    if (Npc_GetNextTarget(her))
+    test(Npc_GetNextTarget)
     {
-        var c_npc target2;
-        target2 = Hlp_GetNpc(other);
-        _zDisengageNpc(target2);
-    };
-
-    // 3. Disengage nearby hostile NPC
-    if (Wld_DetectNpcEx(her, -1, NOFUNC, -1, 0))
-    {
-        var c_npc target3;
-        target3 = Hlp_GetNpc(other);
-        _zDisengageNpc(target3);
-    };
-};
-
-func int C_DropUnconscious()
-{
-    if (Npc_IsPlayer(self))
-    {
-        return TRUE;
-    };
-    if (self.guild > GIL_SEPERATOR_HUM) { return FALSE; };
-    if (other.guild > GIL_SEPERATOR_HUM) { return FALSE; };
-    return TRUE;
-};
-
-func int ZS_Unconscious_Loop()
-{
-    if (Npc_IsPlayer(self))
-    {
-        if (Npc_GetStateTime(self) >= z_HeroDownDurationSeconds)
+        if (Npc_GetNextTarget(her))
         {
-            return LOOP_END;
+            var c_npc target2;
+            target2 = Hlp_GetNpc(other);
+            _zDisengageNpc(target2);
         };
-        return LOOP_CONTINUE;
     };
-    if (Npc_GetStateTime(self) >= 15)
+
+    test(Wld_DetectNpcEx)
     {
-        return LOOP_END;
+        test(NOFUNC)
+        {
+            if (Wld_DetectNpcEx(her, -1, NOFUNC, -1, 0))
+            {
+                var c_npc target3;
+                target3 = Hlp_GetNpc(other);
+                _zDisengageNpc(target3);
+            };
+        };
     };
-    return LOOP_CONTINUE;
 };
 
-func void ZS_Unconscious_End()
+test(C_DropUnconscious)
 {
-    AI_PlayAni(self, "T_VICTIM_SLE_2_STAND");
-    Mdl_RemoveOverlayMds(self, "HUMANS_UNCONSCIOUS.MDS");
-    Mdl_StartFaceAni(self, "S_NEUTRAL", 1, -1);
-    if (Npc_IsPlayer(self))
+    func int C_DropUnconscious()
     {
-        self.aivar[AIV_INVINCIBLE] = FALSE;
+        if (Npc_IsPlayer(self))
+        {
+            return TRUE;
+        };
+        return C_DropUnconscious_Old();
+    };
+};
+
+test(ZS_Unconscious_Loop)
+{
+    func int ZS_Unconscious_Loop()
+    {
+        if (Npc_IsPlayer(self))
+        {
+            if (Npc_GetStateTime(self) >= z_HeroDownDurationSeconds)
+            {
+                return 1; // LOOP_END
+            };
+            return 0; // LOOP_CONTINUE
+        };
+        return ZS_Unconscious_Loop_Old();
+    };
+};
+
+test(ZS_Unconscious_End)
+{
+    func void ZS_Unconscious_End()
+    {
+        if (Npc_IsPlayer(self))
+        {
+            AI_PlayAni(self, "T_VICTIM_SLE_2_STAND");
+            Mdl_RemoveOverlayMds(self, "HUMANS_UNCONSCIOUS.MDS");
+            Mdl_StartFaceAni(self, "S_NEUTRAL", 1, -1);
+            _zHeroDontDie_ClearInvincible(self);
+            return;
+        };
+        ZS_Unconscious_End_Old();
     };
 };
 
 func event GameLoop()
 {
     var c_npc her;
-    her = Hlp_GetNpc(hero);
-    if (!Hlp_IsValidNpc(her))
+    test(hero)
     {
-        her = Hlp_GetNpc(PC_Hero);
+        her = Hlp_GetNpc(hero);
+    };
+    test(PC_Hero)
+    {
+        if (!Hlp_IsValidNpc(her))
+        {
+            her = Hlp_GetNpc(PC_Hero);
+        };
     };
 
     if (Hlp_IsValidNpc(her))
     {
-        // 1. Cache legitimate Max HP increases (level ups, permanent potions, shrines)
         if (her.attribute[ATR_HITPOINTS_MAX] > z_hero_cached_max_hp)
         {
             z_hero_cached_max_hp = her.attribute[ATR_HITPOINTS_MAX];
         };
 
-        // 2. Protect Max HP against scripted instant-kill corruption (e.g. boundary cutscenes forcing Max HP = 10)
         if (her.attribute[ATR_HITPOINTS_MAX] < z_hero_cached_max_hp)
         {
             her.attribute[ATR_HITPOINTS_MAX] = z_hero_cached_max_hp;
         };
 
-        // 3. Intercept fatal damage to keep Marvin immortal and initiate ZS_Unconscious
         if (her.attribute[ATR_HITPOINTS] <= 1)
         {
             her.attribute[ATR_HITPOINTS] = 25;
@@ -151,7 +199,6 @@ func event GameLoop()
             };
         };
 
-        // 4. While unconscious on ground: maintain immortality and keep hostiles disengaged
         if (C_BodyStateContains(her, BS_UNCONSCIOUS) || Npc_IsInState(her, ZS_Unconscious))
         {
             her.attribute[ATR_HITPOINTS] = 25;
@@ -167,15 +214,13 @@ func event GameLoop()
         }
         else
         {
-            // 5. Standing up & On Feet Grace Period (20 seconds)
             if (z_hero_down == 1)
             {
                 her.flags = her.flags | NPC_FLAG_IMMORTAL;
 
-                // Ensure face is neutral and busy flag cleared upon standing
                 Mdl_RemoveOverlayMds(her, "HUMANS_UNCONSCIOUS.MDS");
                 Mdl_StartFaceAni(her, "S_NEUTRAL", 1, -1);
-                her.aivar[AIV_INVINCIBLE] = FALSE;
+                _zHeroDontDie_ClearInvincible(her);
 
                 if (her.attribute[ATR_HITPOINTS] < 25)
                 {
@@ -184,7 +229,6 @@ func event GameLoop()
 
                 z_hero_timer += 1;
 
-                // 60 ticks per second on feet
                 var int max_ticks;
                 max_ticks = z_HeroCooldownSeconds * 60;
 

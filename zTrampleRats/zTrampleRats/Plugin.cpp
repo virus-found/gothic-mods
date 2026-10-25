@@ -1,121 +1,180 @@
-// Standalone Union Plugin: zTrampleRats
-// Unconditionally trample small ambient rats (Meatbugs are handled separately by vanilla zUtilities)
+// standalone union plugin: zTrampleRats across G1, G1A, G2, G2A
+// unconditionally trample small ambient rats (meatbugs are handled separately by zUtilities)
 
 #include "UnionAfx.h"
+#include <stdlib.h>
 
-namespace Gothic_II_Addon {
-  oCNpc* playerTrfCopy = nullptr;
+#define ZTRAMPLERATS_IMPL_NAMESPACE(NS, IS_G2_GUILDS, ADDR_COPY_TRF, ADDR_ON_TOUCH) \
+namespace NS { \
+  typedef void (__fastcall *T_CopyTrf)(oCNpc*, void*, oCNpc*); \
+  typedef void (__fastcall *T_OnTouch)(oCNpc*, void*, zCVob*); \
+\
+  static oCNpc* s_playerTrfCopy = nullptr; \
+  static CInvoke<T_CopyTrf>* s_ivkCopyTrf = nullptr; \
+  static CInvoke<T_OnTouch>* s_ivkOnTouch = nullptr; \
+  static int s_hooksCommitted = 0; \
+\
+  static int IsRatGuild(oCNpc* npc) { \
+    if (IS_G2_GUILDS) { \
+      return (npc->guild == 23 || npc->guild == 18); \
+    } \
+    return (npc->guild > NPC_GIL_HUMANS); \
+  } \
+\
+  static int IsRatVisual(const zSTRING& vName, int allowFullGiantRat) { \
+    if (vName == "BLACK_RAT.MDS" || vName == "GIANT_RAT_LITTLE.MDS" || vName == "RAT.MDS" || \
+        vName == "BLACK_RAT" || vName == "GIANT_RAT_LITTLE") { \
+      return 1; \
+    } \
+    if (allowFullGiantRat && (vName == "GIANT_RAT.MDS" || vName == "GIANT_RAT")) { \
+      return 1; \
+    } \
+    return 0; \
+  } \
+\
+  static void __fastcall Hook_CopyTransformSpellInvariantValuesTo(oCNpc* _this, void* _edx, oCNpc* npc) { \
+    if (_this == player) \
+      s_playerTrfCopy = _this; \
+    (*s_ivkCopyTrf)(_this, _edx, npc); \
+  } \
+\
+  static void __fastcall Hook_OnTouch(oCNpc* _this, void* _edx, zCVob* vob) { \
+    oCNpc* npc = vob ? vob->CastTo<oCNpc>() : nullptr; \
+    zCVisual* visual = vob ? vob->GetVisual() : nullptr; \
+\
+    if (!npc || !visual || !_this->IsSelfPlayer() || !_this->IsHuman() || vob == s_playerTrfCopy || npc->HasFlag(NPC_FLAG_IMMORTAL)) { \
+      (*s_ivkOnTouch)(_this, _edx, vob); \
+      return; \
+    } \
+\
+    bool trample = false; \
+    if (IsRatGuild(npc)) { \
+      zSTRING vName = visual->GetVisualName(); \
+      vName.Upper(); \
+      if (IsRatVisual(vName, IS_G2_GUILDS)) { \
+        if (npc->attribute[NPC_ATR_HITPOINTSMAX] <= 30) { \
+          trample = true; \
+        } \
+      } \
+    } \
+\
+    if (trample) { \
+      for (auto i = 0; i < npc->model_scale.Length(); ++i) { \
+        if (npc->model_scale[i] > 1.0f) { \
+          trample = false; \
+          break; \
+        } \
+      } \
+    } \
+\
+    if (!trample) { \
+      (*s_ivkOnTouch)(_this, _edx, vob); \
+      return; \
+    } \
+\
+    npc->DoDie(_this); \
+    if (npc->attribute[NPC_ATR_HITPOINTS] > 0) \
+      npc->attribute[NPC_ATR_HITPOINTS] = 0; \
+\
+    if (zsound) { \
+      int sndIdx = (rand() % 5) + 1; \
+      zSTRING sndName = zSTRING("CS_IAM_UD_FLX_0") + zSTRING(sndIdx) + zSTRING(".WAV"); \
+      if (zCSoundFX* snd = zsound->LoadSoundFX(sndName)) { \
+        zCSoundSystem::zTSound3DParams params; \
+        zsound->GetSound3DProps(0, params); \
+        zsound->PlaySound3D(snd, vob, 0, &params); \
+        snd->Release(); \
+      } \
+    } \
+\
+    (*s_ivkOnTouch)(_this, _edx, vob); \
+  } \
+\
+  void OnInit() { \
+    if (!s_hooksCommitted) { \
+      s_hooksCommitted = 1; \
+      s_ivkCopyTrf = new CInvoke<T_CopyTrf>(ADDR_COPY_TRF, &Hook_CopyTransformSpellInvariantValuesTo, IVK_AUTO); \
+      s_ivkOnTouch = new CInvoke<T_OnTouch>(ADDR_ON_TOUCH, &Hook_OnTouch, IVK_AUTO); \
+    } \
+  } \
+}
 
-  HOOK Hook_oCNpc_CopyTransformSpellInvariantValuesTo PATCH( &oCNpc::CopyTransformSpellInvariantValuesTo, &oCNpc::CopyTransformSpellInvariantValuesTo_Union );
-  void oCNpc::CopyTransformSpellInvariantValuesTo_Union( oCNpc* npc ) {
-    if ( this == player )
-      playerTrfCopy = this;
-
-    THISCALL( Hook_oCNpc_CopyTransformSpellInvariantValuesTo )( npc );
-  }
-
-  HOOK Hook_oCNpc_OnTouch PATCH( &oCNpc::OnTouch, &oCNpc::OnChrzonszcz );
-  void oCNpc::OnChrzonszcz( zCVob* vob ) {
-    oCNpc* npc = vob->CastTo<oCNpc>();
-    zCVisual* visual = vob->GetVisual();
-
-    if ( !npc || !visual || !this->IsSelfPlayer() || !this->IsHuman() || vob == playerTrfCopy || npc->HasFlag( NPC_FLAG_IMMORTAL ) ) {
-      THISCALL( Hook_oCNpc_OnTouch )( vob );
-      return;
-    }
-
-    bool trample = false;
-
-#if ENGINE >= Engine_G2
-    if ( npc->guild == NPC_GIL_GIANT_RAT || npc->guild == NPC_GIL_SHEEP ) {
-      zSTRING vName = visual->GetVisualName();
-      vName.Upper();
-      if ( vName == "BLACK_RAT.MDS" || vName == "GIANT_RAT_LITTLE.MDS" || vName == "GIANT_RAT.MDS" || vName == "RAT.MDS" || vName == "BLACK_RAT" || vName == "GIANT_RAT" || vName == "GIANT_RAT_LITTLE" ) {
-        // Odyssey & Mod Monster Rat Workaround:
-        // Ambient rats have low MAX HP (<=30). Hostile monster rats in Odyssey have higher HP (>30).
-        if ( npc->attribute[NPC_ATR_HITPOINTSMAX] <= 30 ) {
-          trample = true;
-        }
-      }
-    }
+#ifdef __G1
+ZTRAMPLERATS_IMPL_NAMESPACE(Gothic_I_Classic,  0, 0x0069A000, 0x006A68E0)
 #endif
 
-    if ( trample ) {
-      for ( auto i = 0; i < npc->model_scale.Length(); i++ ) {
-        if ( npc->model_scale[i] > 1.0f ) {
-          trample = false;
-          break;
-        }
-      }
-    }
+#ifdef __G1A
+ZTRAMPLERATS_IMPL_NAMESPACE(Gothic_I_Addon,    0, 0x006CBF40, 0x006D94C0)
+#endif
 
-    if ( !trample ) {
-      THISCALL( Hook_oCNpc_OnTouch )( vob );
-      return;
-    }
+#ifdef __G2
+ZTRAMPLERATS_IMPL_NAMESPACE(Gothic_II_Classic, 1, 0x006DEBB0, 0x006EC260)
+#endif
 
-    // Kill target
-    npc->DoDie( this );
-    if ( npc->attribute[NPC_ATR_HITPOINTS] > 0 )
-      npc->attribute[NPC_ATR_HITPOINTS] = 0;
+#ifdef __G2A
+ZTRAMPLERATS_IMPL_NAMESPACE(Gothic_II_Addon,   1, 0x0073D3D0, 0x0074AF20)
+#endif
 
-    // Play squish sound
-    int sndIdx = ( rand() % 5 ) + 1;
-    zSTRING sndName = zSTRING( "CS_IAM_UD_FLX_0" ) + zSTRING( sndIdx ) + zSTRING( ".WAV" );
-    if ( zCSoundFX* snd = zsound->LoadSoundFX( sndName ) ) {
-      zCSoundSystem::zTSound3DParams params;
-      zsound->GetSound3DProps( 0, params );
-      zsound->PlaySound3D( snd, vob, 0, &params );
-      snd->Release();
-    }
-
-    THISCALL( Hook_oCNpc_OnTouch )( vob );
+static void EnsureHooks() {
+  switch (Union.GetEngineVersion()) {
+#ifdef __G1
+    case Engine_G1:  Gothic_I_Classic::OnInit(); break;
+#endif
+#ifdef __G1A
+    case Engine_G1A: Gothic_I_Addon::OnInit(); break;
+#endif
+#ifdef __G2
+    case Engine_G2:  Gothic_II_Classic::OnInit(); break;
+#endif
+#ifdef __G2A
+    case Engine_G2A: Gothic_II_Addon::OnInit(); break;
+#endif
+    default: break;
   }
-
-  void Game_Entry() {}
-  void Game_Init() {}
-  void Game_Exit() {}
-  void Game_PreLoop() {}
-  void Game_Loop() {}
-  void Game_PostLoop() {}
-  void Game_MenuLoop() {}
-  void Game_SaveBegin() {}
-  void Game_SaveEnd() {}
-  void Game_LoadBegin_NewGame() {}
-  void Game_LoadEnd_NewGame() {}
-  void Game_LoadBegin_SaveGame() {}
-  void Game_LoadEnd_SaveGame() {}
-  void Game_LoadBegin_ChangeLevel() {}
-  void Game_LoadEnd_ChangeLevel() {}
-  void Game_LoadBegin_Trigger() {}
-  void Game_LoadEnd_Trigger() {}
-  void Game_Pause() {}
-  void Game_Unpause() {}
-  void Game_DefineExternals() {}
-  void Game_ApplyOptions() {}
-
-#define AppDefault True
-  CApplication* lpApplication = CApplication::CreateRefApplication(
-    Enabled( AppDefault ) Game_Entry,
-    Enabled( AppDefault ) Game_Init,
-    Enabled( AppDefault ) Game_Exit,
-    Enabled( AppDefault ) Game_PreLoop,
-    Enabled( AppDefault ) Game_Loop,
-    Enabled( AppDefault ) Game_PostLoop,
-    Enabled( AppDefault ) Game_MenuLoop,
-    Enabled( AppDefault ) Game_SaveBegin,
-    Enabled( AppDefault ) Game_SaveEnd,
-    Enabled( AppDefault ) Game_LoadBegin_NewGame,
-    Enabled( AppDefault ) Game_LoadEnd_NewGame,
-    Enabled( AppDefault ) Game_LoadBegin_SaveGame,
-    Enabled( AppDefault ) Game_LoadEnd_SaveGame,
-    Enabled( AppDefault ) Game_LoadBegin_ChangeLevel,
-    Enabled( AppDefault ) Game_LoadEnd_ChangeLevel,
-    Enabled( AppDefault ) Game_LoadBegin_Trigger,
-    Enabled( AppDefault ) Game_LoadEnd_Trigger,
-    Enabled( AppDefault ) Game_Pause,
-    Enabled( AppDefault ) Game_Unpause,
-    Enabled( AppDefault ) Game_DefineExternals,
-    Enabled( AppDefault ) Game_ApplyOptions
-  );
 }
+
+static void Game_Entry() { EnsureHooks(); }
+static void Game_Init() { EnsureHooks(); }
+static void Game_Exit() {}
+static void Game_PreLoop() {}
+static void Game_Loop() {}
+static void Game_PostLoop() {}
+static void Game_MenuLoop() {}
+static void Game_SaveBegin() {}
+static void Game_SaveEnd() {}
+static void Game_LoadBegin_NewGame() {}
+static void Game_LoadEnd_NewGame() {}
+static void Game_LoadBegin_SaveGame() {}
+static void Game_LoadEnd_SaveGame() {}
+static void Game_LoadBegin_ChangeLevel() {}
+static void Game_LoadEnd_ChangeLevel() {}
+static void Game_LoadBegin_Trigger() {}
+static void Game_LoadEnd_Trigger() {}
+static void Game_Pause() {}
+static void Game_Unpause() {}
+static void Game_DefineExternals() {}
+static void Game_ApplyOptions() {}
+
+CApplication* lpApplication = CApplication::CreateRefApplication(
+  Enabled(True) Game_Entry,
+  Enabled(True) Game_Init,
+  Enabled(True) Game_Exit,
+  Enabled(True) Game_PreLoop,
+  Enabled(True) Game_Loop,
+  Enabled(True) Game_PostLoop,
+  Enabled(True) Game_MenuLoop,
+  Enabled(True) Game_SaveBegin,
+  Enabled(True) Game_SaveEnd,
+  Enabled(True) Game_LoadBegin_NewGame,
+  Enabled(True) Game_LoadEnd_NewGame,
+  Enabled(True) Game_LoadBegin_SaveGame,
+  Enabled(True) Game_LoadEnd_SaveGame,
+  Enabled(True) Game_LoadBegin_ChangeLevel,
+  Enabled(True) Game_LoadEnd_ChangeLevel,
+  Enabled(True) Game_LoadBegin_Trigger,
+  Enabled(True) Game_LoadEnd_Trigger,
+  Enabled(True) Game_Pause,
+  Enabled(True) Game_Unpause,
+  Enabled(True) Game_DefineExternals,
+  Enabled(True) Game_ApplyOptions
+);

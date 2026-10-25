@@ -10,32 +10,64 @@ META
 // Configurable duration (in seconds) for on-screen messages:
 const int z_PrintScreen_DurationSeconds = 10;
 
-func void PrintScreen(var string msg, var int posx, var int posy, var string font, var int timeSec)
+test(PrintScreen)
 {
-    PrintScreen_Old(msg, posx, posy, font, z_PrintScreen_DurationSeconds);
+    func void PrintScreen(var string msg, var int posx, var int posy, var string font, var int timeSec)
+    {
+        PrintScreen_Old(msg, posx, posy, font, z_PrintScreen_DurationSeconds);
+    };
 };
 
-func void PrintScreenS(var string msg, var int posx, var int posy, var string font, var int timeSec)
+test(AI_PrintScreen)
 {
-    PrintScreenS_Old(msg, posx, posy, font, z_PrintScreen_DurationSeconds);
+    func void AI_PrintScreen(var string msg, var int posx, var int posy, var string font, var int timeSec)
+    {
+        AI_PrintScreen_Old(msg, posx, posy, font, z_PrintScreen_DurationSeconds);
+    };
 };
 
-func void AI_PrintScreenS(var c_npc npc, var string msg, var int posx, var int posy, var string font, var int timeSec)
+test(PrintScreenS)
 {
-    AI_PrintScreenS_Old(npc, msg, posx, posy, font, z_PrintScreen_DurationSeconds);
+    func void PrintScreenS(var string msg, var int posx, var int posy, var string font, var int timeSec)
+    {
+        PrintScreenS_Old(msg, posx, posy, font, z_PrintScreen_DurationSeconds);
+    };
 };
 
-func void PrintDialog(var int player, var string msg, var int posx, var int posy, var string font, var int timeSec)
+test(AI_PrintScreenS)
 {
-    PrintDialog_Old(player, msg, posx, posy, font, z_PrintScreen_DurationSeconds);
+    func void AI_PrintScreenS(var c_npc npc, var string msg, var int posx, var int posy, var string font, var int timeSec)
+    {
+        AI_PrintScreenS_Old(npc, msg, posx, posy, font, z_PrintScreen_DurationSeconds);
+    };
 };
 
-func void PrintS(var string txt)
+test(PrintDialog)
 {
-    PrintScreen(txt, 2, -1, FONT_ScreenSmall, z_PrintScreen_DurationSeconds);
+    func void PrintDialog(var int player, var string msg, var int posx, var int posy, var string font, var int timeSec)
+    {
+        PrintDialog_Old(player, msg, posx, posy, font, z_PrintScreen_DurationSeconds);
+    };
 };
 
-func void PrintS_Ext(var string txt, var int color)
+test(PrintS)
 {
-    PrintScreen(txt, 2, -1, FONT_ScreenSmall, z_PrintScreen_DurationSeconds);
+    test(FONT_ScreenSmall)
+    {
+        func void PrintS(var string txt)
+        {
+            PrintScreen(txt, 2, -1, FONT_ScreenSmall, z_PrintScreen_DurationSeconds);
+        };
+    };
+};
+
+test(PrintS_Ext)
+{
+    test(FONT_ScreenSmall)
+    {
+        func void PrintS_Ext(var string txt, var int color)
+        {
+            PrintScreen(txt, 2, -1, FONT_ScreenSmall, z_PrintScreen_DurationSeconds);
+        };
+    };
 };

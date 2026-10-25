@@ -8,7 +8,7 @@
 		// return immediately from UpdatePosition to skip position math
 		HEX @$func_oCViewDocumentMap_UpdatePosition = 'c3'
 
-		// nop out the call inserting ViewArrow child into ViewPageMap
-		HEX @$text_oCViewDocumentMap_SetPage_InsertArrow = '90 90 90 90 90'
+		// skip the call inserting ViewArrow child into ViewPageMap and clean 6 stack args (0x18 bytes)
+		HEX @$text_oCViewDocumentMap_SetPage_InsertArrow = '83 c4 18 90 90'
 	#/patch
 #/engine

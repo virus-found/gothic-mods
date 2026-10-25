@@ -23,6 +23,15 @@ set(_directx_lib "${UNION_SDK_ROOT}/DirectX7/lib")
 set(_project_sources
     "${_plugin_dir}/DllMain.cpp"
     "${_plugin_dir}/Plugin.cpp"
+    "${_plugin_dir}/ZenGin/Gothic_I_Classic/Globals_G1.cpp"
+    "${_plugin_dir}/ZenGin/Gothic_I_Classic/ClassDeclarators_G1.cpp"
+    "${_plugin_dir}/ZenGin/Gothic_I_Classic/Statics_G1.cpp"
+    "${_plugin_dir}/ZenGin/Gothic_I_Addon/Globals_G1A.cpp"
+    "${_plugin_dir}/ZenGin/Gothic_I_Addon/ClassDeclarators_G1A.cpp"
+    "${_plugin_dir}/ZenGin/Gothic_I_Addon/Statics_G1A.cpp"
+    "${_plugin_dir}/ZenGin/Gothic_II_Classic/Globals_G2.cpp"
+    "${_plugin_dir}/ZenGin/Gothic_II_Classic/ClassDeclarators_G2.cpp"
+    "${_plugin_dir}/ZenGin/Gothic_II_Classic/Statics_G2.cpp"
     "${_plugin_dir}/ZenGin/Gothic_II_Addon/Globals_G2A.cpp"
     "${_plugin_dir}/ZenGin/Gothic_II_Addon/ClassDeclarators_G2A.cpp"
     "${_plugin_dir}/ZenGin/Gothic_II_Addon/Statics_G2A.cpp"
@@ -42,7 +51,7 @@ set(_project_includes
 target_include_directories(zTrampleRats PRIVATE ${_project_includes})
 target_link_directories(zTrampleRats PRIVATE "${_union_lib}" "${_directx_lib}")
 
-target_compile_definitions(zTrampleRats PRIVATE WIN32 _WINDOWS _USRDLL GOTHICPLUGIN_EXPORTS _WINDLL _MBCS __G2A)
+target_compile_definitions(zTrampleRats PRIVATE WIN32 _WINDOWS _USRDLL GOTHICPLUGIN_EXPORTS _WINDLL _MBCS __G1 __G1A __G2 __G2A)
 set_property(TARGET zTrampleRats PROPERTY MSVC_RUNTIME_LIBRARY "MultiThreaded")
 
 target_compile_options(zTrampleRats PRIVATE

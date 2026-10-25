@@ -6,13 +6,20 @@ META
 
 // title: zNoMapArrow (suppress custom scripted map cursors across mods)
 
-var int SPRITEMAP_SPRITECURSORHNDL;
-
-func event GameLoop()
+test(Hlp_IsValidHandle)
 {
-    // hide Archolos custom LeGo SpriteMap cursor if active
-    if (Hlp_IsValidHandle(SPRITEMAP_SPRITECURSORHNDL))
+    test(Sprite_SetVisible)
     {
-        Sprite_SetVisible(SPRITEMAP_SPRITECURSORHNDL, FALSE);
+        test(SPRITEMAP_SPRITECURSORHNDL)
+        {
+            func event GameLoop()
+            {
+                // hide Archolos custom LeGo SpriteMap cursor if active
+                if (Hlp_IsValidHandle(SPRITEMAP_SPRITECURSORHNDL))
+                {
+                    Sprite_SetVisible(SPRITEMAP_SPRITECURSORHNDL, FALSE);
+                };
+            };
+        };
     };
 };

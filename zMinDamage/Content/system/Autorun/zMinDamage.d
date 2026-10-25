@@ -1,6 +1,7 @@
 META
 {
     Parser = GAME;
+    MergeMode = TRUE;
 };
 
 // Title: zMinDamage

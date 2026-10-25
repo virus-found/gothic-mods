@@ -20,27 +20,40 @@ run_uploader() {
     "$PROTON" run "$UPLOADER" "$@"
 }
 
-ask_and_run() {
-    local title="$1"
-    shift
+# Note: GothicSteamWorkshopUploader.exe 'update' treats --content, --preview,
+# --description, --tags, and --title as mutually exclusive per invocation.
+ask_and_update() {
+    local mod_dir="$1"
+    local mod_id="$2"
+    local changenote="$3"
     local answer=""
 
     echo ""
     echo "========================================================"
-    echo "Target: ${title}"
+    echo "Target: Update ${mod_dir} (${mod_id})"
     echo "========================================================"
-    read -r -p "Execute for '${title}'? [y/N/q]: " answer
+    read -r -p "Execute update for '${mod_dir}'? [y/N/q]: " answer
 
     case "${answer}" in
         [yY]|[yY][eE][sS])
-            run_uploader "$@"
+            run_uploader update --game=g2 --mod="${mod_id}" \
+                --content="${WINE_REPO_ROOT}\\${mod_dir}\\Content" \
+                --changenote="${changenote}"
+            if [[ -f "${SCRIPT_DIR}/${mod_dir}/preview.png" ]] ; then
+                run_uploader update --game=g2 --mod="${mod_id}" \
+                    --preview="${WINE_REPO_ROOT}\\${mod_dir}\\preview.png"
+            fi
+            if [[ -f "${SCRIPT_DIR}/${mod_dir}/description.bbcode" ]] ; then
+                run_uploader update --game=g2 --mod="${mod_id}" \
+                    --description="$(cat "${SCRIPT_DIR}/${mod_dir}/description.bbcode")"
+            fi
             ;;
         [qQ]|[qQ][uU][iI][tT])
             echo "Aborted by user."
             exit 0
             ;;
         *)
-            echo "Skipping ${title}."
+            echo "Skipping ${mod_dir}."
             ;;
     esac
 }
@@ -48,92 +61,17 @@ ask_and_run() {
 echo "=== Gothic Steam Workshop Uploader ==="
 echo "Confirm (y), skip (N/Enter), or quit (q) for each mod."
 
-# -------------------------------------------------------------
-# Publish mods
-# -------------------------------------------------------------
-ask_and_run "Update: zSprint (3770177726)" \
-    update --game=g2 --mod=3770177726 \
-    --content="${WINE_REPO_ROOT}\zSprint\Content" \
-    --description="$(cat "${SCRIPT_DIR}/zSprint/description.bbcode")" \
-    --tags="Addon,Union,Patch,Gameplay,Archolos" \
-    --changenote="Change mod name due to copyright"
-
-ask_and_run "Update: zDropEquipmentOnDeath (3770297210)" \
-    update --game=g2 --mod=3770297210 \
-    --content="${WINE_REPO_ROOT}\zDropEquipmentOnDeath\Content" \
-    --description="$(cat "${SCRIPT_DIR}/zDropEquipmentOnDeath/description.bbcode")" \
-    --changenote="Fix error Undefined function : MEM_GOTHOPTEXISTS"
-
-ask_and_run "Update: zHeroDontDie (3770285059)" \
-    update --game=g2 --mod=3770285059 \
-    --content="${WINE_REPO_ROOT}\zHeroDontDie\Content" \
-    --description="$(cat "${SCRIPT_DIR}/zHeroDontDie/description.bbcode")" \
-    --tags="Addon,Union,Patch,Gameplay,Archolos" \
-    --changenote="Update to 20s recovery and immortality handling"
-
-ask_and_run "Update: zTrampleRats (3773551430)" \
-    update --game=g2 --mod=3773551430 \
-    --content="${WINE_REPO_ROOT}\zTrampleRats\Content" \
-    --preview="${WINE_REPO_ROOT}\zTrampleRats\preview.png" \
-    --description="$(cat "${SCRIPT_DIR}/zTrampleRats/description.bbcode")" \
-    --changenote="Maintenance update"
-
-ask_and_run "Update: zMinDamage (3786940595)" \
-    update --game=g2 --mod=3786940595 \
-    --title="zMinDamage" \
-    --description="$(cat "${SCRIPT_DIR}/zMinDamage/description.bbcode")" \
-    --tags="Addon,Union,Patch,Gameplay,Archolos" \
-    --content="${WINE_REPO_ROOT}\zMinDamage\Content" \
-    --preview="${WINE_REPO_ROOT}\zMinDamage\preview.png" \
-    --changenote="Initial release"
-
-ask_and_run "Update: zNoBubbles (3786941527)" \
-    update --game=g2 --mod=3786941527 \
-    --title="zNoBubbles" \
-    --description="$(cat "${SCRIPT_DIR}/zNoBubbles/description.bbcode")" \
-    --tags="Addon,Union,Plugin,Fix,Gameplay,Archolos" \
-    --content="${WINE_REPO_ROOT}\zNoBubbles\Content" \
-    --preview="${WINE_REPO_ROOT}\zNoBubbles\preview.png" \
-    --changenote="Initial release"
-
-ask_and_run "Update: zPlunderInState (3786949082)" \
-    update --game=g2 --mod=3786949082 \
-    --content="${WINE_REPO_ROOT}\zPlunderInState\Content" \
-    --preview="${WINE_REPO_ROOT}\zPlunderInState\preview.png" \
-    --description="$(cat "${SCRIPT_DIR}/zPlunderInState/description.bbcode")" \
-    --tags="Addon,Union,Patch,Fix,Gameplay,Archolos" \
-    --changenote="Maintenance update"
-
-ask_and_run "Update: zNoUnderwaterEffects (3786949195)" \
-    update --game=g2 --mod=3786949195 \
-    --content="${WINE_REPO_ROOT}\zNoUnderwaterEffects\Content" \
-    --preview="${WINE_REPO_ROOT}\zNoUnderwaterEffects\preview.png" \
-    --description="$(cat "${SCRIPT_DIR}/zNoUnderwaterEffects/description.bbcode")" \
-    --tags="Addon,Union,Patch,Gameplay,Archolos" \
-    --changenote="Maintenance update"
-
-ask_and_run "Update: zPrintScreenDuration (3787732835)" \
-    update --game=g2 --mod=3787732835 \
-    --title="zPrintScreenDuration" \
-    --description="$(cat "${SCRIPT_DIR}/zPrintScreenDuration/description.bbcode")" \
-    --tags="Addon,Union,Patch,Gameplay,Archolos" \
-    --content="${WINE_REPO_ROOT}\zPrintScreenDuration\Content" \
-    --preview="${WINE_REPO_ROOT}\zPrintScreenDuration\preview.png" \
-    --changenote="Initial release"
-
-ask_and_run "Publish: zNoMapArrow" \
-    publish --game=g2 --title="zNoMapArrow" \
-    --description="$(cat "${SCRIPT_DIR}/zNoMapArrow/description.bbcode")" \
-    --tags="Addon,Union,Patch,Gameplay,Archolos" \
-    --content="${WINE_REPO_ROOT}\zNoMapArrow\Content" \
-    --preview="${WINE_REPO_ROOT}\zNoMapArrow\preview.png"
-
-ask_and_run "Publish: zCompass" \
-    publish --game=g2 --title="zCompass" \
-    --description="$(cat "${SCRIPT_DIR}/zCompass/description.bbcode")" \
-    --tags="Addon,Union,Patch,Gameplay,Archolos" \
-    --content="${WINE_REPO_ROOT}\zCompass\Content" \
-    --preview="${WINE_REPO_ROOT}\zCompass\preview.png"
+ask_and_update "zSprint"               "3770177726" "Maintenance update"
+ask_and_update "zDropEquipmentOnDeath" "3770297210" "Fix G1 and G2 compatibility, MergeMode, and ZS_Dead chaining"
+ask_and_update "zHeroDontDie"          "3770285059" "Fix compatibility with LHiver, G1, and custom overhaul mods"
+ask_and_update "zTrampleRats"          "3773551430" "Add multi-engine support for G1, G1A, G2, and G2A"
+ask_and_update "zMinDamage"            "3786940595" "Enable MergeMode in script metadata"
+ask_and_update "zNoBubbles"            "3786941527" "Maintenance update"
+ask_and_update "zPlunderInState"       "3786949082" "Maintenance update"
+ask_and_update "zNoUnderwaterEffects"  "3786949195" "Fix engine patch addresses for G1, G1A, and G2 Classic"
+ask_and_update "zPrintScreenDuration"  "3787732835" "Fix standalone support across G1, G1A, G2, G2A, and modded installs"
+ask_and_update "zNoMapArrow"           "3788405389" "Fix stack cleanup in map cursor patch and LeGo compatibility"
+ask_and_update "zCompass"              "3788405613" "Fix native C++ HUD rendering across clean Union and modded installs"
 
 echo ""
 echo "Finished processing all items!"
