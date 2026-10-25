@@ -20,7 +20,7 @@
                 "CMAKE_TOOLCHAIN_FILE": "${sourceDir}/cmake/msvc-wine-x86.cmake",
                 "CMAKE_EXPORT_COMPILE_COMMANDS": true,
                 "CMAKE_MSVC_DEBUG_INFORMATION_FORMAT": "Embedded",
-                "UNION_SDK_ROOT": "$env{HOME}/my_msvc/opt/Union/1.0m"
+                "UNION_SDK_ROOT": "$env{HOME}/prj/scripts/msvc-wine/opt/Union/1.0m"
             }
         },
         {

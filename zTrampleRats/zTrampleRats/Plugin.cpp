@@ -16,18 +16,31 @@ namespace NS { \
 \
   static int IsRatGuild(oCNpc* npc) { \
     if (IS_G2_GUILDS) { \
-      return (npc->guild == 23 || npc->guild == 18); \
+      return (npc->guild == 17 || npc->guild == 18 || npc->guild == 23); \
     } \
     return (npc->guild > NPC_GIL_HUMANS); \
   } \
 \
-  static int IsRatVisual(const zSTRING& vName, int allowFullGiantRat) { \
-    if (vName == "BLACK_RAT.MDS" || vName == "GIANT_RAT_LITTLE.MDS" || vName == "RAT.MDS" || \
-        vName == "BLACK_RAT" || vName == "GIANT_RAT_LITTLE") { \
-      return 1; \
+  static int HasModelScaleAtMost(oCNpc* npc, float maxScale) { \
+    return (npc->model_scale[0] > 0.0f && npc->model_scale[0] <= maxScale && \
+            npc->model_scale[1] > 0.0f && npc->model_scale[1] <= maxScale && \
+            npc->model_scale[2] > 0.0f && npc->model_scale[2] <= maxScale); \
+  } \
+\
+  static int IsSmallAmbientRat(oCNpc* npc, oCNpc* playerNpc, const zSTRING& vName) { \
+    if (!IsRatGuild(npc)) { \
+      return 0; \
     } \
-    if (allowFullGiantRat && (vName == "GIANT_RAT.MDS" || vName == "GIANT_RAT")) { \
-      return 1; \
+    if (npc->IsHostile(playerNpc) || npc->attribute[NPC_ATR_HITPOINTSMAX] > 30) { \
+      return 0; \
+    } \
+    if (vName == "GIANT_RAT_LITTLE.MDS" || vName == "GIANT_RAT_LITTLE" || \
+        vName == "RAT.MDS" || vName == "RAT") { \
+      return HasModelScaleAtMost(npc, 1.0f); \
+    } \
+    if (vName == "GIANT_RAT.MDS" || vName == "GIANT_RAT" || \
+        vName == "BLACK_RAT.MDS" || vName == "BLACK_RAT") { \
+      return HasModelScaleAtMost(npc, 0.5f); \
     } \
     return 0; \
   } \
@@ -47,27 +60,9 @@ namespace NS { \
       return; \
     } \
 \
-    bool trample = false; \
-    if (IsRatGuild(npc)) { \
-      zSTRING vName = visual->GetVisualName(); \
-      vName.Upper(); \
-      if (IsRatVisual(vName, IS_G2_GUILDS)) { \
-        if (npc->attribute[NPC_ATR_HITPOINTSMAX] <= 30) { \
-          trample = true; \
-        } \
-      } \
-    } \
-\
-    if (trample) { \
-      for (auto i = 0; i < npc->model_scale.Length(); ++i) { \
-        if (npc->model_scale[i] > 1.0f) { \
-          trample = false; \
-          break; \
-        } \
-      } \
-    } \
-\
-    if (!trample) { \
+    zSTRING vName = visual->GetVisualName(); \
+    vName.Upper(); \
+    if (!IsSmallAmbientRat(npc, _this, vName)) { \
       (*s_ivkOnTouch)(_this, _edx, vob); \
       return; \
     } \

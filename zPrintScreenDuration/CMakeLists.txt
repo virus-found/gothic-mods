@@ -8,7 +8,7 @@ project(zPrintScreenDuration LANGUAGES CXX RC)
 add_definitions(-D_CRT_SECURE_NO_WARNINGS -D_CRT_NONSTDC_NO_DEPRECATE)
 add_compile_options(/wd4996 /wd4244)
 
-set(UNION_SDK_ROOT "$ENV{HOME}/my_msvc/opt/Union/1.0m" CACHE PATH
+set(UNION_SDK_ROOT "$ENV{HOME}/prj/scripts/msvc-wine/opt/Union/1.0m" CACHE PATH
     "Root containing Union/v1.0m and DirectX7")
 set(UNION_GAME "G2A" CACHE STRING
     "Union target: G1, G1A, G2, G2A, MP_X2, or MP_X4")

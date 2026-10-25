@@ -1,6 +1,6 @@
 # Cross-compile 32-bit Windows binaries with mstorsjo/msvc-wine.
 # Override at configure time with -DMSVC_WINE_ROOT=/another/location.
-set(MSVC_WINE_ROOT "$ENV{HOME}/my_msvc/opt/msvc" CACHE PATH
+set(MSVC_WINE_ROOT "$ENV{HOME}/prj/scripts/msvc-wine/opt/msvc" CACHE PATH
     "Root of the installed msvc-wine toolchain")
 
 set(_MSVC_WINE_BIN "${MSVC_WINE_ROOT}/bin/x86")
