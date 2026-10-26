@@ -71,7 +71,7 @@ ask_and_update "zPlunderInState"       "3786949082" "Maintenance update"
 ask_and_update "zNoUnderwaterEffects"  "3786949195" "Fix engine patch addresses for G1, G1A, and G2 Classic"
 ask_and_update "zPrintScreenDuration"  "3787732835" "Fix standalone support across G1, G1A, G2, G2A, and modded installs"
 ask_and_update "zNoMapArrow"           "3788405389" "Fix stack cleanup in map cursor patch and LeGo compatibility"
-ask_and_update "zCompass"              "3788405613" "Fix native C++ HUD rendering across clean Union and modded installs"
+ask_and_update "zCompass"              "3788405613" "Fix native C++ HUD rendering and suppress legacy LeGo compass sprites"
 
 echo ""
 echo "Finished processing all items!"

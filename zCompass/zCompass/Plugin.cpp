@@ -35,6 +35,24 @@ static void ParseStrConst(const char* buf, const char* key, char* outBuf, size_t
   outBuf[len] = '\0';
 }
 
+static int ContainsIgnoreCase(const char* haystack, const char* needle) {
+  if (!haystack || !needle || needle[0] == '\0') return 0;
+  size_t nlen = strlen(needle);
+  for (const char* p = haystack; *p != '\0'; ++p) {
+    size_t i = 0;
+    while (i < nlen && p[i] != '\0') {
+      char c1 = p[i];
+      char c2 = needle[i];
+      if (c1 >= 'a' && c1 <= 'z') c1 = (char)(c1 - ('a' - 'A'));
+      if (c2 >= 'a' && c2 <= 'z') c2 = (char)(c2 - ('a' - 'A'));
+      if (c1 != c2) break;
+      ++i;
+    }
+    if (i == nlen) return 1;
+  }
+  return 0;
+}
+
 static void EnsureFileConfigLoaded() {
   if (s_fileParsed) return;
   s_fileParsed = 1;
@@ -141,58 +159,66 @@ namespace NS { \
 \
   static int s_legacyCleaned = 0; \
 \
-  static void CleanupLegacyLeGoSprites() { \
-    if (!parser) return; \
-    zCPar_Symbol* symSpriteCls = parser->GetSymbol("GCSPRITE@"); \
-    if (!symSpriteCls) return; \
-\
-    int idxGet = parser->GetIndex("GETPTR"); \
-    int idxDelete = parser->GetIndex("DELETE"); \
-    int idxSetVis = parser->GetIndex("SPRITE_SETVISIBLE"); \
-\
-    int knownHandles[] = { 55094, 55095 }; \
-    for (int i = 0; i < 2; ++i) { \
-      int h = knownHandles[i]; \
-      if (idxGet >= 0) { \
-        void* ptr = parser->CallFunc(idxGet, h); \
-        if (ptr) { \
-          *(int*)((char*)ptr + 16) = 1; \
-        } \
-      } \
-      if (idxSetVis >= 0) { \
-        parser->CallFunc(idxSetVis, h, 0); \
-      } \
-      if (idxDelete >= 0) { \
-        parser->CallFunc(idxDelete, h); \
-      } \
-    } \
-\
+  static int CleanupLegacyLeGoSprites() { \
+    if (!parser) return 0; \
+    int classIndex = parser->GetIndex("GCSPRITE@"); \
     zCPar_Symbol* symTable = parser->GetSymbol("_PM_FOREACHTABLE"); \
-    if (symTable) { \
-      int tablePtr = 0; \
-      symTable->GetValue(tablePtr, 0); \
-      int classIndex = parser->GetIndex("GCSPRITE@"); \
-      if (tablePtr && classIndex >= 0) { \
-        zCArray<int>** pTable = (zCArray<int>**)tablePtr; \
-        zCArray<int>* spriteList = pTable[classIndex]; \
-        if (spriteList && spriteList->GetNum() > 0) { \
-          for (int i = spriteList->GetNum() - 1; i >= 0; --i) { \
-            int h = (*spriteList)[i]; \
-            if (idxGet >= 0) { \
-              void* ptr = parser->CallFunc(idxGet, h); \
-              if (ptr) { \
-                zSTRING* texName = (zSTRING*)((char*)ptr + 24); \
-                if (texName && texName->ToChar() && strstr(texName->ToChar(), "PATCH_COMPASS")) { \
-                  *(int*)((char*)ptr + 16) = 1; \
-                  if (idxSetVis >= 0) parser->CallFunc(idxSetVis, h, 0); \
-                  if (idxDelete >= 0) parser->CallFunc(idxDelete, h); \
-                } \
-              } \
-            } \
-          } \
-        } \
+    int idxGet = parser->GetIndex("GETPTR"); \
+    if (classIndex < 0 || !symTable || idxGet < 0) return 1; \
+    if (classIndex >= parser->symtab.GetNumInList()) return 1; \
+\
+    int tableAddr = 0; \
+    symTable->GetValue(tableAddr, 0); \
+    if (!tableAddr) { \
+      zCPar_Symbol* symHandles = parser->GetSymbol("HANDLESPOINTER"); \
+      int handlesPtr = 0; \
+      if (symHandles) symHandles->GetValue(handlesPtr, 0); \
+      return handlesPtr ? 0 : 1; \
+    } \
+\
+    zCPar_Symbol* symHidden = parser->GetSymbol("GCSPRITE.HIDDEN"); \
+    zCPar_Symbol* symTexName = parser->GetSymbol("GCSPRITE.TEXTURENAME"); \
+    if (!symHidden || !symTexName) return 1; \
+    int offHidden = symHidden->offset; \
+    int offTexName = symTexName->offset; \
+    if (offHidden < 0 || offHidden > 128 || offTexName < 0 || offTexName > 128) return 1; \
+\
+    zCArray<int>** pTable = (zCArray<int>**)(size_t)(unsigned int)tableAddr; \
+    zCArray<int>* spriteList = pTable[classIndex]; \
+    if (!spriteList || spriteList->GetNum() <= 0) return 1; \
+\
+    int count = spriteList->GetNum(); \
+    int* snapshot = new int[count]; \
+    for (int i = 0; i < count; ++i) { \
+      snapshot[i] = (*spriteList)[i]; \
+    } \
+\
+    int idxSetVis = parser->GetIndex("SPRITE_SETVISIBLE"); \
+    int idxDelete = parser->GetIndex("DELETE"); \
+\
+    for (int i = 0; i < count; ++i) { \
+      int h = snapshot[i]; \
+      if (h <= 0) continue; \
+      int* retPtr = (int*)parser->CallFunc(idxGet, h); \
+      int objAddr = retPtr ? *retPtr : 0; \
+      if (!objAddr) continue; \
+\
+      char* base = (char*)(size_t)(unsigned int)objAddr; \
+      zSTRING* texName = (zSTRING*)(base + offTexName); \
+      const char* rawTex = texName->ToChar(); \
+      if (!rawTex || rawTex[0] == '\0') continue; \
+\
+      if (ContainsIgnoreCase(rawTex, "PATCH_COMPASS") || \
+          (s_texBackName[0] != '\0' && ContainsIgnoreCase(rawTex, s_texBackName)) || \
+          (s_texNeedleName[0] != '\0' && ContainsIgnoreCase(rawTex, s_texNeedleName))) { \
+        *(int*)(base + offHidden) = 1; \
+        if (idxSetVis >= 0) parser->CallFunc(idxSetVis, h, 0); \
+        if (idxDelete >= 0) parser->CallFunc(idxDelete, h); \
       } \
     } \
+\
+    delete[] snapshot; \
+    return 1; \
   } \
 \
   void OnInit() { \
@@ -200,13 +226,11 @@ namespace NS { \
       LoadCompassConfig(); \
       s_cfgLoaded = 1; \
     } \
-    s_legacyCleaned = 0; \
-    CleanupLegacyLeGoSprites(); \
+    s_legacyCleaned = CleanupLegacyLeGoSprites(); \
   } \
 \
   void OnLoad() { \
-    s_legacyCleaned = 0; \
-    CleanupLegacyLeGoSprites(); \
+    s_legacyCleaned = CleanupLegacyLeGoSprites(); \
   } \
 \
   void OnLoop() { \
@@ -214,15 +238,13 @@ namespace NS { \
       LoadCompassConfig(); \
       s_cfgLoaded = 1; \
     } \
+    if (!s_legacyCleaned) { \
+      s_legacyCleaned = CleanupLegacyLeGoSprites(); \
+    } \
     if (!s_show || !ogame || !player || !zrenderer) return; \
     if (!ogame->GetShowPlayerStatus() || player->inventory2.IsOpen()) return; \
     if (!oCInformationManager::GetInformationManager().HasFinished()) return; \
     if (s_aivInvincible >= 0 && s_aivInvincible < MAX_AIVARS && player->aiscriptvars[s_aivInvincible] != 0) return; \
-\
-    if (!s_legacyCleaned) { \
-      CleanupLegacyLeGoSprites(); \
-      s_legacyCleaned = 1; \
-    } \
 \
     if (!s_texBack && s_texBackName[0] != '\0') { \
       zSTRING texName(s_texBackName); \
