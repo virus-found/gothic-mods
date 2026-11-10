@@ -34,6 +34,24 @@ static void ParseIntConst(const char* buf, const char* key, int& outVal) {
   outVal = atoi(eq + 1);
 }
 
+static bool ContainsIgnoreCase(const char* haystack, const char* needle) {
+  if (!haystack || !needle || !needle[0]) return false;
+  size_t nlen = strlen(needle);
+  for (const char* p = haystack; *p; ++p) {
+    size_t i = 0;
+    for (; i < nlen; ++i) {
+      char c1 = p[i];
+      if (!c1) return false;
+      if (c1 >= 'a' && c1 <= 'z') c1 = (char)(c1 - 'a' + 'A');
+      char c2 = needle[i];
+      if (c2 >= 'a' && c2 <= 'z') c2 = (char)(c2 - 'a' + 'A');
+      if (c1 != c2) break;
+    }
+    if (i == nlen) return true;
+  }
+  return false;
+}
+
 static void EnsureFileConfigLoaded() {
   if (s_fileParsed) return;
   s_fileParsed = 1;
@@ -79,18 +97,7 @@ namespace NS { \
   static bool s_inSetVelHook = false; \
   static bool s_inImpulseHook = false; \
   static bool s_inCheckSpecialStatesHook = false; \
-  static int s_lastTakeoffType = 0; \
-  static bool s_takeoffActive = false; \
-  static zVEC3 s_prevTakeoffPos(0.0f, 0.0f, 0.0f); \
-  static float s_prevFloorY = 0.0f; \
-  static float s_currentUphillSlope = 0.0f; \
-\
-  enum { \
-    TAKEOFF_NONE = 0, \
-    TAKEOFF_STAND_FWD = 1, \
-    TAKEOFF_RUN_FWD = 2, \
-    TAKEOFF_VERTICAL = 3 \
-  }; \
+  static float s_defaultJumpUpHeight = 0.0f; \
 \
   static void LoadOptions() { \
     EnsureFileConfigLoaded(); \
@@ -169,11 +176,11 @@ namespace NS { \
   } \
 \
   static bool IsPlayerAcrobatic(oCNpc* npc, const char* aniStr) { \
-    if (aniStr && strstr(aniStr, "ACRO") != nullptr) { \
+    if (aniStr && ContainsIgnoreCase(aniStr, "ACRO")) { \
       return true; \
     } \
     for (int i = 0; i < npc->activeOverlays.GetNum(); ++i) { \
-      if (strstr(npc->activeOverlays[i].ToChar(), "ACRO") != nullptr) { \
+      if (ContainsIgnoreCase(npc->activeOverlays[i].ToChar(), "ACRO")) { \
         return true; \
       } \
     } \
@@ -193,17 +200,36 @@ namespace NS { \
       return 0.0f; \
     } \
     const zVEC3& n = floorPoly->polyPlane.normal; \
-    if (n[1] <= 0.2f) { \
+    if (n[1] <= 0.25f) { \
       return 0.0f; \
     } \
     float slope = -(n[0] * dir[0] + n[2] * dir[2]) / n[1]; \
-    return (slope > 0.0f) ? slope : 0.0f; \
+    if (slope <= 0.0f) return 0.0f; \
+    return (slope > 0.85f) ? 0.85f : slope; \
   } \
 \
   static bool IsAniIdActive(zCModel* model, int aniId) { \
     if (!model || aniId <= 0) return false; \
     zCModelAni* ani = model->GetAniFromAniID(aniId); \
     return (ani && model->IsAniActive(ani) != 0); \
+  } \
+\
+  static float GetActiveJumpProgress(oCAniCtrl_Human* anictrl, int standId, int runLId, int runRId) { \
+    zCModel* model = anictrl ? anictrl->model : nullptr; \
+    if (!model) return 0.0f; \
+    if (standId > 0 && IsAniIdActive(model, standId)) { \
+      return model->GetProgressPercent(standId); \
+    } \
+    if (runLId > 0 && IsAniIdActive(model, runLId)) { \
+      return model->GetProgressPercent(runLId); \
+    } \
+    if (runRId > 0 && IsAniIdActive(model, runRId)) { \
+      return model->GetProgressPercent(runRId); \
+    } \
+    if (model->aniChannels[0]) { \
+      return model->aniChannels[0]->GetProgressPercent(); \
+    } \
+    return 0.0f; \
   } \
 \
   static void __fastcall Hook_CheckSpecialStates(oCAniCtrl_Human* _this, void* _edx) { \
@@ -217,112 +243,79 @@ namespace NS { \
         LoadOptions(); \
       } \
 \
+      if (s_defaultJumpUpHeight <= 10.0f) { \
+        float baseH = _this->GetJumpUpHeight(); \
+        s_defaultJumpUpHeight = (baseH > 10.0f) ? baseH : 200.0f; \
+      } \
       float vertMult = s_jumpMultiplier * s_jumpVerticalMultiplier * s_jumpHeightMultiplier; \
       float ledgeCapMult = (vertMult > 25.0f) ? 25.0f : vertMult; \
-      _this->SetJumpUpForceByHeight(200.0f * ledgeCapMult); \
+      _this->SetJumpUpForceByHeight(s_defaultJumpUpHeight * ledgeCapMult); \
 \
       bool isStandFwdTakeoff = IsAniIdActive(_this->model, _this->_t_stand_2_jump); \
-      bool isRunFwdTakeoff = false; \
-      bool isVertTakeoff = IsAniIdActive(_this->model, _this->_t_stand_2_jumpup); \
+      bool isRunFwdTakeoff = IsAniIdActive(_this->model, _this->_t_runl_2_jump) || \
+                             IsAniIdActive(_this->model, _this->_t_runr_2_jump); \
 \
       zSTRING aniName = GetActiveJumpAniName(player); \
       const char* str = aniName.ToChar(); \
-      if (str && str[0] != '\0') { \
-        if (strstr(str, "STAND_2_JUMPUP")) { \
-          isVertTakeoff = true; \
-        } else if (strstr(str, "STAND_2_JUMP")) { \
+      if (!isStandFwdTakeoff && !isRunFwdTakeoff && str && str[0] != '\0') { \
+        if (strstr(str, "STAND_2_JUMP") && !strstr(str, "STAND_2_JUMPUP")) { \
           isStandFwdTakeoff = true; \
         } else if (strstr(str, "RUNL_2_JUMP") || strstr(str, "RUNR_2_JUMP") || strstr(str, "RUN_2_JUMP")) { \
           isRunFwdTakeoff = true; \
         } \
       } \
 \
-      if (isStandFwdTakeoff) { \
-        s_lastTakeoffType = TAKEOFF_STAND_FWD; \
-      } else if (isRunFwdTakeoff) { \
-        s_lastTakeoffType = TAKEOFF_RUN_FWD; \
-      } else if (isVertTakeoff) { \
-        s_lastTakeoffType = TAKEOFF_VERTICAL; \
-      } \
-\
       if (!_this->vob->physicsEnabled && (isStandFwdTakeoff || isRunFwdTakeoff)) { \
-        zVEC3 dir = player->GetAtVectorWorld(); \
-        dir[1] = 0.0f; \
-        if (dir.Length_Sqr() > 0.0001f) { \
-          dir.Normalize(); \
-        } \
-\
-        float polySlope = ComputeGroundPolygonUphillSlope(_this, dir); \
-        float curFloorY = _this->feetY - _this->aboveFloor; \
-        if (s_takeoffActive) { \
-          float dX = _this->centerPos[0] - s_prevTakeoffPos[0]; \
-          float dZ = _this->centerPos[2] - s_prevTakeoffPos[2]; \
-          float dH = sqrtf(dX * dX + dZ * dZ); \
-          if (dH > 0.5f) { \
-            float stepSlope = (curFloorY - s_prevFloorY) / dH; \
-            if (stepSlope > polySlope) { \
-              polySlope = stepSlope; \
-            } \
-          } \
-        } \
-        if (polySlope > 1.2f) { \
-          polySlope = 1.2f; \
-        } \
-        if (polySlope > 0.0f) { \
-          s_currentUphillSlope = polySlope; \
-        } else if (!s_takeoffActive) { \
-          s_currentUphillSlope = 0.0f; \
-        } \
-\
-        bool isAcro = (isRunFwdTakeoff && IsPlayerAcrobatic(player, nullptr)); \
+        bool isAcro = IsPlayerAcrobatic(player, str); \
         float multH = s_jumpMultiplier * (isAcro ? s_jumpAcrobaticsMultiplier : s_jumpForwardMultiplier); \
         float multV = s_jumpHeightMultiplier; \
+        bool needScaleH = (fabsf(multH - 1.0f) > 0.001f); \
+        bool needScaleV = (fabsf(multV - 1.0f) > 0.001f); \
 \
-        zVEC3 vt = _this->model->vobTrans; \
-        float extraX = vt[0] * (multH - 1.0f); \
-        float extraZ = vt[2] * (multH - 1.0f); \
-        float extraY = (vt[1] > 0.0f) ? (vt[1] * (multV - 1.0f)) : 0.0f; \
+        if (needScaleH || needScaleV) { \
+          zVEC3 vt = _this->model->vobTrans; \
+          float aniProgress = GetActiveJumpProgress(_this, _this->_t_stand_2_jump, \
+                                                    _this->_t_runl_2_jump, _this->_t_runr_2_jump); \
+          float extraX = needScaleH ? (vt[0] * (multH - 1.0f)) : 0.0f; \
+          float extraZ = needScaleH ? (vt[2] * (multH - 1.0f)) : 0.0f; \
+          float extraY = 0.0f; \
+          if (needScaleV && (vt[1] > 0.0f || aniProgress >= 0.20f)) { \
+            extraY = vt[1] * (multV - 1.0f); \
+          } \
 \
-        float totalHorizStep = sqrtf(vt[0] * vt[0] + vt[2] * vt[2]) * multH; \
-        if (s_currentUphillSlope > 0.0f && totalHorizStep > 0.0f) { \
-          extraY += totalHorizStep * s_currentUphillSlope + 1.5f; \
-        } \
+          float liveSlope = 0.0f; \
+          float extraHoriz = sqrtf(extraX * extraX + extraZ * extraZ); \
+          if (multH > 1.001f && vt[2] > 0.0f && extraHoriz > 0.0f) { \
+            zVEC3 dir = player->GetAtVectorWorld(); \
+            dir[1] = 0.0f; \
+            if (dir.Length_Sqr() > 0.0001f) { \
+              dir.Normalize(); \
+            } \
+            liveSlope = ComputeGroundPolygonUphillSlope(_this, dir); \
+            if (liveSlope > 0.0f) { \
+              float slopeFactor = (aniProgress <= 0.65f) \
+                                    ? 1.0f \
+                                    : (1.0f - (aniProgress - 0.65f) / 0.35f); \
+              if (slopeFactor < 0.0f) slopeFactor = 0.0f; \
+              extraY += extraHoriz * liveSlope * slopeFactor; \
+            } \
+          } \
 \
-        if (extraX != 0.0f || extraY != 0.0f || extraZ != 0.0f) { \
-          _this->vob->MoveLocal(extraX, extraY, extraZ); \
-          _this->centerPos = _this->vob->GetPositionWorld(); \
-          _this->feetY += extraY; \
-          _this->headY += extraY; \
-          _this->aboveFloor += extraY; \
-        } \
-\
-        if (_this->aboveFloor < 5.0f) { \
-          float lift = 5.0f - _this->aboveFloor; \
-          _this->vob->Move(0.0f, lift, 0.0f); \
-          _this->centerPos = _this->vob->GetPositionWorld(); \
-          _this->feetY += lift; \
-          _this->headY += lift; \
-          _this->aboveFloor = 5.0f; \
-        } \
-\
-        s_takeoffActive = true; \
-        s_prevTakeoffPos = _this->centerPos; \
-        s_prevFloorY = curFloorY; \
-      } else { \
-        s_takeoffActive = false; \
-        if (!_this->vob->physicsEnabled && IsAniIdActive(_this->model, _this->_s_jump)) { \
-          if (_this->aboveFloor < 5.0f) { \
-            float lift = 5.0f - _this->aboveFloor; \
-            _this->vob->Move(0.0f, lift, 0.0f); \
-            _this->centerPos = _this->vob->GetPositionWorld(); \
-            _this->feetY += lift; \
-            _this->headY += lift; \
-            _this->aboveFloor = 5.0f; \
+          if (extraX != 0.0f || extraY != 0.0f || extraZ != 0.0f) { \
+            zVEC3 oldPos = _this->vob->GetNewTrafoObjToWorld().GetTranslation(); \
+            _this->vob->MoveLocal(extraX, extraY, extraZ); \
+            zVEC3 newPos = _this->vob->GetNewTrafoObjToWorld().GetTranslation(); \
+            float actualDY = newPos[1] - oldPos[1]; \
+            _this->centerPos = newPos; \
+            _this->feetY += actualDY; \
+            _this->headY += actualDY; \
+            _this->aboveFloor += actualDY - extraHoriz * liveSlope; \
           } \
         } \
       } \
 \
-      if (_this->vob->physicsEnabled && IsAniIdActive(_this->model, _this->_s_jumpup) && \
+      if (vertMult > 1.001f && _this->vob->physicsEnabled && \
+          IsAniIdActive(_this->model, _this->_s_jumpup) && \
           !_this->GetFoundLedge() && _this->velocity[1] > 0.0f) { \
         zVEC3 ledgePt; \
         _this->DetectClimbUpLedge(ledgePt, 1); \
@@ -362,39 +355,25 @@ namespace NS { \
 \
     zSTRING aniName = GetActiveJumpAniName(player); \
     const char* str = aniName.ToChar(); \
-    if (!str || str[0] == '\0') { \
+    if (!str || str[0] == '\0' || strstr(str, "FALL") != nullptr || strstr(str, "JUMP") == nullptr) { \
       return; \
     } \
-\
-    bool isVerticalJump = false; \
-    bool isStandingFwdJump = false; \
-    bool isRunningFwdJump = false; \
-\
-    if (s_lastTakeoffType == TAKEOFF_VERTICAL || \
-        strstr(str, "JUMPUP") || strstr(str, "JUMPSTAND") || \
-        strstr(str, "JUMPLOW") || strstr(str, "JUMPMID")) { \
-      isVerticalJump = true; \
-    } else if (s_lastTakeoffType == TAKEOFF_STAND_FWD || strstr(str, "STAND_2_JUMP")) { \
-      isStandingFwdJump = true; \
-    } else if (s_lastTakeoffType == TAKEOFF_RUN_FWD || \
-               strstr(str, "S_JUMP") || strstr(str, "RUNL_2_JUMP") || \
-               strstr(str, "RUNR_2_JUMP") || strstr(str, "RUN_2_JUMP") || \
-               strstr(str, "JUMP")) { \
-      isRunningFwdJump = true; \
-    } else { \
-      return; \
-    } \
-    s_lastTakeoffType = TAKEOFF_NONE; \
-\
-    bool isAcrobatics = (isRunningFwdJump && IsPlayerAcrobatic(player, str)); \
 \
     if (!s_optionsLoaded) { \
       LoadOptions(); \
     } \
 \
+    bool isVerticalJump = (strstr(str, "JUMPUP") || strstr(str, "JUMPSTAND") || \
+                           strstr(str, "JUMPLOW") || strstr(str, "JUMPMID")); \
+    bool isAcrobatics = (!isVerticalJump && IsPlayerAcrobatic(player, str) && \
+                         (strstr(str, "S_JUMP") || strstr(str, "RUNL_2_JUMP") || \
+                          strstr(str, "RUNR_2_JUMP") || strstr(str, "RUN_2_JUMP") || \
+                          strstr(str, "STAND_2_JUMP"))); \
+    bool isMidStandTakeoff = (!isVerticalJump && !isAcrobatics && \
+                              strstr(str, "STAND_2_JUMP") != nullptr); \
+\
     float multH = s_jumpMultiplier; \
     float multV = s_jumpHeightMultiplier; \
-\
     if (isVerticalJump) { \
       multH *= s_jumpVerticalMultiplier; \
       multV *= s_jumpMultiplier * s_jumpVerticalMultiplier; \
@@ -409,40 +388,27 @@ namespace NS { \
       s_hasLikerPlugin = (GetModuleHandleA("Union_JumpAcrobaticsNoFps.dll") != nullptr) ? 1 : 0; \
     } \
 \
-    zVEC3 dir = player->GetAtVectorWorld(); \
-    dir[1] = 0.0f; \
-    if (dir.Length_Sqr() > 0.0001f) { \
-      dir.Normalize(); \
-    } \
-\
-    if (!s_hasLikerPlugin && s_fixFpsJump && (isAcrobatics || isStandingFwdJump || isRunningFwdJump)) { \
-      float ringHorizSpeed = sqrtf(vel[0] * vel[0] + vel[2] * vel[2]); \
-      float baseSpeed  = isAcrobatics ? 815.0f : (isStandingFwdJump ? 303.0f : 420.0f); \
-      float baseHeight = isAcrobatics ? 16.3f  : (isStandingFwdJump ? 6.06f  : 10.0f); \
-      if (ringHorizSpeed > baseSpeed) { \
-        baseSpeed = ringHorizSpeed; \
+    if (!s_hasLikerPlugin && s_fixFpsJump && (isAcrobatics || isMidStandTakeoff)) { \
+      zVEC3 dir = player->GetAtVectorWorld(); \
+      dir[1] = 0.0f; \
+      if (dir.Length_Sqr() > 0.0001f) { \
+        dir.Normalize(); \
       } \
-\
+      float baseSpeed  = isAcrobatics ? 815.0f : 303.0f; \
+      float baseHeight = isAcrobatics ? 16.3f  : 6.06f; \
       _this->v[0] = dir[0] * (baseSpeed * multH); \
       _this->v[2] = dir[2] * (baseSpeed * multH); \
       _this->v[1] = baseHeight * multV; \
     } else { \
+      if (fabsf(multH - 1.0f) <= 0.001f && fabsf(multV - 1.0f) <= 0.001f) { \
+        return; \
+      } \
       _this->v[0] *= multH; \
       _this->v[2] *= multH; \
-      _this->v[1] *= multV; \
-    } \
-\
-    if (player->anictrl) { \
-      float liveSlope = ComputeGroundPolygonUphillSlope(player->anictrl, dir); \
-      if (liveSlope > s_currentUphillSlope && liveSlope <= 1.2f) { \
-        s_currentUphillSlope = liveSlope; \
+      if (_this->v[1] > 0.0f) { \
+        _this->v[1] *= multV; \
       } \
     } \
-    if (s_currentUphillSlope > 0.0f && (isStandingFwdJump || isRunningFwdJump)) { \
-      float horizSpeed = sqrtf(_this->v[0] * _this->v[0] + _this->v[2] * _this->v[2]); \
-      _this->v[1] += horizSpeed * s_currentUphillSlope; \
-    } \
-    s_currentUphillSlope = 0.0f; \
 \
     if (_this->massInv > 0.0f) { \
       _this->PLinMom = _this->v * (1.0f / _this->massInv); \
@@ -471,37 +437,39 @@ namespace NS { \
         } \
         float multH = s_jumpMultiplier * s_jumpVerticalMultiplier; \
         float vertMult = s_jumpMultiplier * s_jumpVerticalMultiplier * s_jumpHeightMultiplier; \
-        float ledgeCapMult = (vertMult > 25.0f) ? 25.0f : vertMult; \
-        zVEC3 scaledImpulse = impulse; \
+        if (fabsf(multH - 1.0f) > 0.001f || fabsf(vertMult - 1.0f) > 0.001f) { \
+          float ledgeCapMult = (vertMult > 25.0f) ? 25.0f : vertMult; \
+          zVEC3 scaledImpulse = impulse; \
 \
-        bool foundLedge = (player->anictrl && player->anictrl->GetFoundLedge() != 0); \
-        if (!foundLedge) { \
-          if (vertMult > ledgeCapMult && ledgeCapMult > 0.0f) { \
-            scaledImpulse[1] *= sqrtf(vertMult / ledgeCapMult); \
-          } \
-          if (scaledImpulse[0] == 0.0f && scaledImpulse[2] == 0.0f && \
-              multH > 1.0f && _this->massInv > 0.0f && \
-              player->anictrl && !player->anictrl->CheckEnoughSpaceMoveForward(0)) { \
-            zVEC3 dir = player->GetAtVectorWorld(); \
-            dir[1] = 0.0f; \
-            if (dir.Length_Sqr() > 0.0001f) { \
-              dir.Normalize(); \
+          bool foundLedge = (player->anictrl && player->anictrl->GetFoundLedge() != 0); \
+          if (!foundLedge) { \
+            if (vertMult > ledgeCapMult && ledgeCapMult > 0.0f) { \
+              scaledImpulse[1] *= sqrtf(vertMult / ledgeCapMult); \
             } \
-            float fwdMult = (multH > 3.5f) ? 3.5f : multH; \
-            float fwdImpulse = (220.0f * fwdMult) / _this->massInv; \
-            scaledImpulse[0] = dir[0] * fwdImpulse; \
-            scaledImpulse[2] = dir[2] * fwdImpulse; \
+            if (scaledImpulse[0] == 0.0f && scaledImpulse[2] == 0.0f && \
+                multH > 1.001f && _this->massInv > 0.0f && \
+                player->anictrl && !player->anictrl->CheckEnoughSpaceMoveForward(0)) { \
+              zVEC3 dir = player->GetAtVectorWorld(); \
+              dir[1] = 0.0f; \
+              if (dir.Length_Sqr() > 0.0001f) { \
+                dir.Normalize(); \
+              } \
+              float fwdMult = (multH > 3.5f) ? 3.5f : multH; \
+              float fwdImpulse = (220.0f * fwdMult) / _this->massInv; \
+              scaledImpulse[0] = dir[0] * fwdImpulse; \
+              scaledImpulse[2] = dir[2] * fwdImpulse; \
+            } \
           } \
-        } \
 \
-        s_inImpulseHook = true; \
-        (*s_ivkApplyImpulseCM)(_this, _edx, scaledImpulse); \
-        s_inImpulseHook = false; \
-        if (player->anictrl) { \
-          player->anictrl->velocity = _this->v; \
-          player->anictrl->velocityLen2 = _this->v.Length_Sqr(); \
+          s_inImpulseHook = true; \
+          (*s_ivkApplyImpulseCM)(_this, _edx, scaledImpulse); \
+          s_inImpulseHook = false; \
+          if (player->anictrl) { \
+            player->anictrl->velocity = _this->v; \
+            player->anictrl->velocityLen2 = _this->v.Length_Sqr(); \
+          } \
+          return; \
         } \
-        return; \
       } \
     } \
 \

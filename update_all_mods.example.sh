@@ -14,9 +14,11 @@ export SteamAppId="${SteamAppId:-39510}"
 export SteamGameId="${SteamGameId:-39510}"
 export STEAM_COMPAT_APP_ID="${STEAM_COMPAT_APP_ID:-39510}"
 export STEAM_COMPAT_CLIENT_INSTALL_PATH="${STEAM_COMPAT_CLIENT_INSTALL_PATH:-/path/to/steam}"
-export STEAM_COMPAT_DATA_PATH="${STEAM_COMPAT_DATA_PATH:-/path/to/steamapps/compatdata/1467450}"
+# use an isolated prefix so proton never unmounts dosdevices/s: or locks a running game prefix
+export STEAM_COMPAT_DATA_PATH="${STEAM_COMPAT_DATA_PATH:-/tmp/gothic-workshop-compatdata}"
 
 run_uploader() {
+    mkdir -p "${STEAM_COMPAT_DATA_PATH}"
     "$PROTON" run "$UPLOADER" "$@"
 }
 
@@ -72,7 +74,7 @@ ask_and_update "zNoUnderwaterEffects"  "3786949195" "Fix engine patch addresses 
 ask_and_update "zPrintScreenDuration"  "3787732835" "Fix standalone support across G1, G1A, G2, G2A, and modded installs"
 ask_and_update "zNoMapArrow"           "3788405389" "Fix stack cleanup in map cursor patch and LeGo compatibility"
 ask_and_update "zCompass"              "3788405613" "Fix native C++ HUD rendering and suppress legacy LeGo compass sprites"
-ask_and_update "zJumpDistance"         "3837279342" "Fix vertical jump scaling, high ledge climbing, and uphill slope trajectory"
+ask_and_update "zJumpDistance"         "3837279342" "Fix vanilla 1.0x jump distance and standing forward jump trajectory"
 
 echo ""
 echo "Finished processing all items!"
