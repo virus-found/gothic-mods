@@ -19,6 +19,7 @@ Collection of lightweight quality-of-life plugins, standalone Daedalus scripts, 
 | **[zPrintScreenDuration](zPrintScreenDuration/)** | `.dll` / `.d` | Extends on-screen message notification duration to a configurable 10 seconds. |
 | **[zNoMapArrow](zNoMapArrow/)** | `.patch` / `.d` | Disables player position arrow and cursor on all in-game maps for authentic navigation. |
 | **[zCompass](zCompass/)** | `.dll` / `.d` | Minimalist hand-drawn HUD compass styled after the authentic map legend. |
+| **[zJumpDistance](zJumpDistance/)** | `.dll` / `.d` | Configurable jump distance and height multipliers with built-in FPS-independent jump fix. |
 
 ---
 

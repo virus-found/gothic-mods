@@ -1,0 +1,36 @@
+Configurable jump distance and jump height multipliers for Gothic 1, Gothic 1 Classic, Gothic 2 Classic, and Gothic 2: Night of the Raven (including The Chronicles of Myrtana: Archolos, Nostalgic Edition, Returning, and other overhaul mods).
+
+Allows you to customize the horizontal distance of running jumps, acrobatics jumps, standing jumps, as well as the jump height.
+
+[b]Features:[/b]
+- Independent multipliers for running forward jumps, acrobatics jumps, and standing vertical jumps.
+- Master horizontal distance multiplier ([b]JumpMultiplier[/b]) to quickly scale all jumps proportionally (e.g. to match movement speedup mods like [b]zSpeedyAnis[/b]).
+- Jump height / vertical impulse multiplier ([b]JumpHeightMultiplier[/b]).
+- Built-in FPS-independent jump distance stabilization.
+- Fully compatible with [b]Union_JumpAcrobaticsNoFps[/b] (scales on top if installed, or works standalone).
+- Multi-engine support: G1, G1A, G2, G2A.
+- 100% Standalone Union plugin.
+
+[b]Configuration (Gothic.ini):[/b]
+[code]
+[ZJUMPDISTANCE]
+; master multiplier for all jumps (horizontal distance)
+JumpMultiplier=1.0
+; multiplier for normal running and standing forward jump
+JumpForwardMultiplier=1.0
+; multiplier for acrobatics running forward jump
+JumpAcrobaticsMultiplier=1.0
+; multiplier for standing vertical jump up
+JumpVerticalMultiplier=1.0
+; multiplier for jump height (vertical impulse)
+JumpHeightMultiplier=1.0
+; built-in fps fix for jump distance (4 cases with Union_JumpAcrobaticsNoFps):
+;   0 + Union_JumpAcrobaticsNoFps absent  -> vanilla fps-dependent jump base + multipliers
+;   1 + Union_JumpAcrobaticsNoFps absent  -> zJumpDistance applies fps fix + multipliers
+;   0 + Union_JumpAcrobaticsNoFps present -> Union_JumpAcrobaticsNoFps applies fps fix + zJumpDistance applies multipliers
+;   1 + Union_JumpAcrobaticsNoFps present -> Union_JumpAcrobaticsNoFps applies fps fix (no double fix) + zJumpDistance applies multipliers
+FixFpsJump=1
+[/code]
+
+[h2]Non-Steam Download & Source Code[/h2]
+[url=https://github.com/virus-found/gothic-mods]GitHub: virus-found/gothic-mods[/url]
